@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+<<<<<<< HEAD
 import DashboardLayout, { MarketplaceNavItemProp } from '../components/DashboardLayout';
 import api from '../services/api';
 import {
@@ -30,11 +31,18 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import moment from 'moment';
 import { toast } from 'react-toastify';
 import { userNavItems, adminNavItems, marketplaceNavItem } from '../navItems';
+=======
+import Button from '../components/Button';
+import Layout from '../components/Layout';
+import { getCurrentUser, logout } from '../utils/auth';
+import api from '../services/api';
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
 
 interface UserData {
   id: number;
   email: string;
   name: string;
+<<<<<<< HEAD
   created_at: string;
   profilePicture?: string;
   role: 'admin' | 'member';
@@ -316,6 +324,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ user, userStats, av
       )}
     </div>
   );
+=======
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
 }
 
 const Dashboard: React.FC = () => {
@@ -323,6 +333,7 @@ const Dashboard: React.FC = () => {
   const [user, setUser] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+<<<<<<< HEAD
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [availableGroups, setAvailableGroups] = useState<StokvelGroup[]>([]);
   const [offers, setOffers] = useState([]);
@@ -405,4 +416,73 @@ const handlePartnerSubmit = (e: React.FormEvent) => {
   // proceed with submission
 };
 
+=======
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const response = await api.get('/auth/me');
+        setUser(response.data);
+      } catch (error: any) {
+        setError(error.response?.data?.message || 'Failed to fetch user data');
+        if (error.response?.status === 401) {
+          navigate('/login');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, [navigate]);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex justify-center items-center h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-500"></div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (error) {
+    return (
+      <Layout>
+        <div className="max-w-4xl mx-auto p-4">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            {error}
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  return (
+    <Layout>
+      <div className="max-w-4xl mx-auto p-4">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold">
+            Welcome, {user?.name || 'User'} to i-STOKVEL
+          </h1>
+          <Button variant="secondary" onClick={handleLogout}>
+            Logout
+          </Button>
+        </div>
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <p className="text-gray-600">
+            This is your dashboard. More features coming soon!
+          </p>
+        </div>
+      </div>
+    </Layout>
+  );
+};
+
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
 export default Dashboard; 

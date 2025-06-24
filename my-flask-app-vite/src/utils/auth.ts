@@ -6,7 +6,10 @@ interface User {
   password: string;
   phoneNumber?: string;
   idNumber?: string;
+<<<<<<< HEAD
   role?: string;
+=======
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
 }
 
 interface AuthResponse {
@@ -22,8 +25,11 @@ export const signup = async (userData: {
   phoneNumber: string;
 }) => {
   try {
+<<<<<<< HEAD
     console.log('Sending registration data:', userData);
     
+=======
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
     const response = await authAPI.register({
       full_name: userData.fullName,
       email: userData.email,
@@ -31,6 +37,7 @@ export const signup = async (userData: {
       phone: userData.phoneNumber,
       confirm_password: userData.password
     });
+<<<<<<< HEAD
     
     console.log('Registration response:', response.data);
     
@@ -53,12 +60,20 @@ export const signup = async (userData: {
     return {
       success: false,
       message: error.response?.data?.error || 'Signup failed. Please try again.'
+=======
+    return { success: true, message: 'Account created successfully' };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error.response?.data?.message || 'Signup failed',
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
     };
   }
 };
 
 export const login = async (email: string, password: string) => {
   try {
+<<<<<<< HEAD
     console.log('Login attempt started:', { email });
     
     const response = await authAPI.login(email, password);
@@ -94,6 +109,24 @@ export const login = async (email: string, password: string) => {
     return {
       success: false,
       message: error.response?.data?.error || 'Login failed. Please try again.'
+=======
+    const response = await authAPI.login(email, password);
+    const { token } = response.data;
+    
+    // Store token
+    localStorage.setItem('token', token);
+    
+    // Get user data
+    const userResponse = await authAPI.getCurrentUser();
+    const user = userResponse.data;
+    localStorage.setItem('user', JSON.stringify(user));
+    
+    return { success: true, user };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error.response?.data?.message || 'Login failed',
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
     };
   }
 };
@@ -101,6 +134,7 @@ export const login = async (email: string, password: string) => {
 export const logout = () => {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
+<<<<<<< HEAD
   window.location.href = '/';
 };
 
@@ -167,4 +201,16 @@ export const resendEmailVerificationCode = async (email: string) => {
       message: error.response?.data?.error || 'Failed to resend code'
     };
   }
+=======
+  window.location.href = '/login';
+};
+
+export const getCurrentUser = () => {
+  const user = localStorage.getItem('user');
+  return user ? JSON.parse(user) : null;
+};
+
+export const isAuthenticated = () => {
+  return !!localStorage.getItem('token');
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
 };

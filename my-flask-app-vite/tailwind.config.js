@@ -1,7 +1,14 @@
 /** @type {import('tailwindcss').Config} */
+<<<<<<< HEAD
 module.exports = {
   content: [
     "./src/**/*.{js,jsx,ts,tsx}",
+=======
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
   ],
   theme: {
     extend: {
@@ -17,12 +24,19 @@ module.exports = {
         'float': 'float 10s ease-in-out infinite',
         'bounce-slow': 'bounce 3s ease-in-out infinite',
         'fill': 'fill 2s ease-in-out infinite',
+<<<<<<< HEAD
         'fade-in': 'fadeIn 0.5s ease-in',
+=======
+        'fade-in': 'fadeIn 0.5s ease-out',
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
         'fade-in-delay': 'fadeIn 0.5s ease-out 0.2s',
         'slide-in': 'slideIn 0.5s ease-out',
         'shake': 'shake 0.5s ease-in-out',
         'slide-out': 'slideOut 0.5s ease-in',
+<<<<<<< HEAD
         'slide-up': 'slideUp 0.5s ease-out',
+=======
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
       },
       keyframes: {
         growTrunk: {
@@ -79,15 +93,19 @@ module.exports = {
           '0%': { transform: 'translateX(0)', opacity: '1' },
           '100%': { transform: 'translateX(-100%)', opacity: '0' },
         },
+<<<<<<< HEAD
         slideUp: {
           '0%': { transform: 'translateY(20px)', opacity: '0' },
           '100%': { transform: 'translateY(0)', opacity: '1' },
         },
+=======
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
       },
       colors: {
         'google-red': '#DB4437',
         'microsoft-blue': '#00A4EF',
         'apple-black': '#000000',
+<<<<<<< HEAD
         blue: {
           50: '#eff6ff',
           100: '#dbeafe',
@@ -100,6 +118,8 @@ module.exports = {
           800: '#1e40af',
           900: '#1e3a8a',
         },
+=======
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
       },
     },
   },
