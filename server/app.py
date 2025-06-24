@@ -259,12 +259,21 @@ class Beneficiary(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     name = db.Column(db.String(100), nullable=False)
-    relationship = db.Column(db.String(50))
+    relationship = db.Column(db.String(100))
     contact = db.Column(db.String(100))
-    share_percentage = db.Column(db.Float, default=0.0)
+    share_percentage = db.Column(db.Float)
+    type = db.Column(db.String(20), nullable=False, default='primary')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     user = db.relationship('User', backref='beneficiaries')
+
+class BeneficiaryPayment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    beneficiary_id = db.Column(db.Integer, db.ForeignKey('beneficiary.id'), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    paid_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    beneficiary = db.relationship('Beneficiary', backref='payments')
 
 # -------------------- DECORATORS --------------------
 def token_required(f):
@@ -1337,31 +1346,85 @@ def get_beneficiaries():
             'name': b.name,
             'relationship': b.relationship,
             'contact': b.contact,
-            'share_percentage': b.share_percentage
+            'share_percentage': b.share_percentage,
+            'type': b.type
         } for b in beneficiaries
     ])
 
 @app.route('/api/beneficiaries', methods=['POST'])
 @jwt_required()
 def add_beneficiary():
-    user_id = get_jwt_identity()
     data = request.get_json()
     beneficiary = Beneficiary(
-        user_id=user_id,
+        user_id=get_jwt_identity(),
         name=data['name'],
-        relationship=data.get('relationship'),
-        contact=data.get('contact'),
-        share_percentage=data.get('share_percentage', 0.0)
+        relationship=data.get('relationship', ''),
+        contact=data.get('contact', ''),
+        share_percentage=data.get('share_percentage', 0),
+        type=data.get('type', 'primary')
     )
     db.session.add(beneficiary)
     db.session.commit()
-    return jsonify({
-        'id': beneficiary.id,
-        'name': beneficiary.name,
-        'relationship': beneficiary.relationship,
-        'contact': beneficiary.contact,
-        'share_percentage': beneficiary.share_percentage
-    }), 201
+    return jsonify({'message': 'Beneficiary added!'}), 201
+
+@app.route('/api/beneficiaries/<int:beneficiary_id>', methods=['PUT'])
+@jwt_required()
+def update_beneficiary(beneficiary_id):
+    user_id = get_jwt_identity()
+    beneficiary = Beneficiary.query.filter_by(id=beneficiary_id, user_id=user_id).first()
+    if not beneficiary:
+        return jsonify({'error': 'Beneficiary not found'}), 404
+    data = request.get_json()
+    beneficiary.name = data.get('name', beneficiary.name)
+    beneficiary.relationship = data.get('relationship', beneficiary.relationship)
+    beneficiary.contact = data.get('contact', beneficiary.contact)
+    beneficiary.share_percentage = data.get('share_percentage', beneficiary.share_percentage)
+    beneficiary.type = data.get('type', beneficiary.type)
+    db.session.commit()
+    return jsonify({'message': 'Beneficiary updated successfully'})
+
+@app.route('/api/beneficiaries/<int:beneficiary_id>', methods=['DELETE'])
+@jwt_required()
+def delete_beneficiary(beneficiary_id):
+    user_id = get_jwt_identity()
+    beneficiary = Beneficiary.query.filter_by(id=beneficiary_id, user_id=user_id).first()
+    if not beneficiary:
+        return jsonify({'error': 'Beneficiary not found'}), 404
+    db.session.delete(beneficiary)
+    db.session.commit()
+    return jsonify({'message': 'Beneficiary deleted successfully'})
+
+@app.route('/api/beneficiaries/<int:beneficiary_id>/payments', methods=['POST'])
+@jwt_required()
+def add_payment(beneficiary_id):
+    user_id = get_jwt_identity()
+    beneficiary = Beneficiary.query.filter_by(id=beneficiary_id, user_id=user_id).first()
+    if not beneficiary:
+        return jsonify({'error': 'Beneficiary not found'}), 404
+    data = request.get_json()
+    payment = BeneficiaryPayment(
+        beneficiary_id=beneficiary_id,
+        amount=data['amount']
+    )
+    db.session.add(payment)
+    db.session.commit()
+    return jsonify({'message': 'Payment recorded successfully'})
+
+@app.route('/api/beneficiaries/<int:beneficiary_id>/payments', methods=['GET'])
+@jwt_required()
+def get_payments(beneficiary_id):
+    user_id = get_jwt_identity()
+    beneficiary = Beneficiary.query.filter_by(id=beneficiary_id, user_id=user_id).first()
+    if not beneficiary:
+        return jsonify({'error': 'Beneficiary not found'}), 404
+    payments = BeneficiaryPayment.query.filter_by(beneficiary_id=beneficiary_id).order_by(BeneficiaryPayment.paid_at.desc()).all()
+    return jsonify([
+        {
+            'id': p.id,
+            'amount': p.amount,
+            'paid_at': p.paid_at.isoformat()
+        } for p in payments
+    ])
 
 @app.errorhandler(Exception)
 def handle_error(error):
