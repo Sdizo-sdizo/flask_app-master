@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+<<<<<<< HEAD
 import { signup, verifyEmailCode, resendEmailVerificationCode } from '../utils/auth';
 import { toast } from 'react-toastify';
+=======
+import { signup } from '../utils/auth';
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
 import PageTransition from '../components/PageTransition';
 
 const Signup: React.FC = () => {
@@ -16,10 +20,13 @@ const Signup: React.FC = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+<<<<<<< HEAD
   const [showOtpVerification, setShowOtpVerification] = useState(false);
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [otpError, setOtpError] = useState('');
   const [userEmailForVerification, setUserEmailForVerification] = useState('');
+=======
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
   const [showTransition, setShowTransition] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -63,6 +70,7 @@ const Signup: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+<<<<<<< HEAD
   const handleOtpChange = (index: number, value: string) => {
     if (value.length > 1) return; // Prevent multiple characters
     
@@ -92,6 +100,8 @@ const Signup: React.FC = () => {
     }
   };
 
+=======
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -105,6 +115,7 @@ const Signup: React.FC = () => {
           phoneNumber: formData.phoneNumber,
         });
 
+<<<<<<< HEAD
         // Check for successful registration
         if (result.success) {
           setSuccessMessage(result.message || 'Registration successful. Please verify your email.');
@@ -119,6 +130,19 @@ const Signup: React.FC = () => {
         console.error('Registration error:', error);
         setErrors({ 
           submit: error.response?.data?.error || error.response?.data?.message || 'An error occurred during registration' 
+=======
+        if (result.success) {
+          setSuccessMessage(result.message);
+          setTimeout(() => {
+            navigate('/login');
+          }, 3000);
+        } else {
+          setErrors({ submit: result.message });
+        }
+      } catch (error: any) {
+        setErrors({ 
+          submit: error.response?.data?.message || 'An error occurred during registration' 
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
         });
       } finally {
         setIsLoading(false);
@@ -126,6 +150,7 @@ const Signup: React.FC = () => {
     }
   };
 
+<<<<<<< HEAD
   const handleVerifyOtp = async (e: React.FormEvent, code?: string) => {
     e.preventDefault();
     const verificationCode = code || otp.join('');
@@ -182,15 +207,25 @@ const Signup: React.FC = () => {
     }
   };
 
+=======
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
   const handleBackToHome = () => {
     setShowTransition(true);
     setTimeout(() => {
       navigate('/');
+<<<<<<< HEAD
     }, 500);
   };
 
   return (
     <div className="h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 relative overflow-hidden">
+=======
+    }, 500); // matches the transition duration
+  };
+
+  return (
+    <div className="h-screen bg-gradient-to-br from-emerald-50 via-white to-emerald-50 relative overflow-hidden">
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
       <PageTransition show={showTransition} />
 
       {/* Animated Coins Background */}
@@ -206,7 +241,11 @@ const Signup: React.FC = () => {
               animationDuration: `${5 + Math.random() * 5}s`,
             }}
           >
+<<<<<<< HEAD
             <div className="w-8 h-8 bg-blue-500 rounded-full opacity-20 transform rotate-45" />
+=======
+            <div className="w-8 h-8 bg-emerald-500 rounded-full opacity-20 transform rotate-45" />
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
           </div>
         ))}
       </div>
@@ -214,10 +253,17 @@ const Signup: React.FC = () => {
       {/* Animated Savings Jar */}
       <div className="absolute top-10 right-10 w-32 h-40 animate-bounce-slow">
         <div className="relative w-full h-full">
+<<<<<<< HEAD
           <div className="absolute bottom-0 w-full h-3/4 bg-blue-100 rounded-b-3xl border-2 border-blue-300">
             <div className="absolute inset-0 bg-blue-200 opacity-50 rounded-b-3xl animate-fill" />
           </div>
           <div className="absolute top-0 w-full h-1/4 bg-blue-200 rounded-t-3xl border-2 border-blue-300" />
+=======
+          <div className="absolute bottom-0 w-full h-3/4 bg-emerald-100 rounded-b-3xl border-2 border-emerald-300">
+            <div className="absolute inset-0 bg-emerald-200 opacity-50 rounded-b-3xl animate-fill" />
+          </div>
+          <div className="absolute top-0 w-full h-1/4 bg-emerald-200 rounded-t-3xl border-2 border-emerald-300" />
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
         </div>
       </div>
 
@@ -226,19 +272,30 @@ const Signup: React.FC = () => {
           <div className="mb-4 text-center">
             <button
               onClick={handleBackToHome}
+<<<<<<< HEAD
               className="absolute top-4 left-4 text-gray-600 hover:text-blue-600 transition-colors duration-200"
+=======
+              className="absolute top-4 left-4 text-gray-600 hover:text-emerald-600 transition-colors duration-200"
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
             </button>
             <h2 className="text-2xl font-bold text-gray-900 mb-1">
+<<<<<<< HEAD
               {showOtpVerification ? 'Verify Your Account' : 'Create Your Account'}
             </h2>
             <p className="text-sm text-gray-600">
               {showOtpVerification 
                 ? `Enter the 6-digit code sent to ${userEmailForVerification}`
                 : 'Join i-STOKVEL and start your savings journey'}
+=======
+              Create Your Account
+            </h2>
+            <p className="text-sm text-gray-600">
+              Join i-STOKVEL and start your savings journey
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
             </p>
           </div>
 
@@ -254,6 +311,7 @@ const Signup: React.FC = () => {
             </div>
           )}
 
+<<<<<<< HEAD
           {showOtpVerification ? (
             <form onSubmit={handleVerifyOtp} className="space-y-4">
               <div className="flex justify-center space-x-2">
@@ -296,6 +354,8 @@ const Signup: React.FC = () => {
               </button>
             </form>
           ) : (
+=======
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
           <form className="space-y-3" onSubmit={handleSubmit}>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -311,7 +371,11 @@ const Signup: React.FC = () => {
                   onChange={handleChange}
                   className={`w-full px-3 py-1.5 text-sm border ${
                     errors.fullName ? 'border-red-300' : 'border-gray-300'
+<<<<<<< HEAD
                     } rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+=======
+                  } rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent`}
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
                   placeholder="Enter your full name"
                 />
                 {errors.fullName && (
@@ -333,7 +397,11 @@ const Signup: React.FC = () => {
                   onChange={handleChange}
                   className={`w-full px-3 py-1.5 text-sm border ${
                     errors.email ? 'border-red-300' : 'border-gray-300'
+<<<<<<< HEAD
                     } rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+=======
+                  } rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent`}
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
                   placeholder="Enter your email"
                 />
                 {errors.email && (
@@ -355,7 +423,11 @@ const Signup: React.FC = () => {
                 onChange={handleChange}
                 className={`w-full px-3 py-1.5 text-sm border ${
                     errors.phoneNumber ? 'border-red-300' : 'border-gray-300'
+<<<<<<< HEAD
                     } rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+=======
+                  } rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent`}
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
                 placeholder="+27 71 234 5678"
               />
               {errors.phoneNumber && (
@@ -377,7 +449,11 @@ const Signup: React.FC = () => {
                   onChange={handleChange}
                   className={`w-full px-3 py-1.5 text-sm border ${
                     errors.password ? 'border-red-300' : 'border-gray-300'
+<<<<<<< HEAD
                     } rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+=======
+                  } rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent`}
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
                   placeholder="Create a password"
                 />
                 {errors.password && (
@@ -398,7 +474,11 @@ const Signup: React.FC = () => {
                   onChange={handleChange}
                   className={`w-full px-3 py-1.5 text-sm border ${
                     errors.confirmPassword ? 'border-red-300' : 'border-gray-300'
+<<<<<<< HEAD
                     } rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+=======
+                  } rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent`}
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
                   placeholder="Confirm your password"
                 />
                 {errors.confirmPassword && (
@@ -411,7 +491,11 @@ const Signup: React.FC = () => {
               <button
                 type="submit"
                 disabled={isLoading}
+<<<<<<< HEAD
                   className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+=======
+                className="w-full bg-emerald-600 text-white py-2 px-4 rounded-lg hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
               >
                 {isLoading ? 'Creating Account...' : 'Create Account'}
               </button>
@@ -419,7 +503,11 @@ const Signup: React.FC = () => {
 
             <div className="text-center text-sm text-gray-600">
               Already have an account?{' '}
+<<<<<<< HEAD
                 <Link to="/login" className="text-blue-600 hover:text-blue-700 font-medium">
+=======
+              <Link to="/login" className="text-emerald-600 hover:text-emerald-700 font-medium">
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
                 Sign in
               </Link>
             </div>
@@ -458,7 +546,10 @@ const Signup: React.FC = () => {
               </button>
             </div>
           </form>
+<<<<<<< HEAD
           )}
+=======
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
         </div>
       </div>
     </div>

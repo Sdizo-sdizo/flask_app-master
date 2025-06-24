@@ -1,5 +1,4 @@
-# -------------------- IMPORTS --------------------
-from flask import Flask, request, jsonify, Response
+from flask import Flask, request, jsonify, Response, make_response
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -21,13 +20,22 @@ import logging
 import string
 from iStokvel.utils.email_utils import send_verification_email
 from flask_migrate import Migrate
+from twilio.rest import Client
+import phonenumbers
+from werkzeug.utils import secure_filename
+from werkzeug.exceptions import HTTPException
+from sqlalchemy import event
+from sqlalchemy.engine import Engine # Also need to import Engine for @event.listens_for(Engine, "connect")
+from flask_jwt_extended.exceptions import JWTExtendedException
+from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
 
-# -------------------- CONFIGURATION --------------------
+# Load environment variables from .env file
 load_dotenv()
 
+# Config
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:property007@localhost:5432/authdb'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:123456789Mo@localhost:5432/authdb'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER')
 app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT')) if os.getenv('MAIL_PORT') else None
@@ -36,8 +44,13 @@ app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
 app.config['SENDGRID_API_KEY'] = os.getenv('SENDGRID_API_KEY')
 app.config['SENDGRID_FROM_EMAIL'] = os.getenv('SENDGRID_FROM_EMAIL')
-app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'your-jwt-secret-key')
-app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=1)
+
+# Add JWT configuration
+app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'your-jwt-secret-key')  # Change this in production
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=1)  # Token expires in 1 hour
+app.config['JWT_TOKEN_LOCATION'] = ['headers']
+app.config['JWT_HEADER_NAME'] = 'Authorization'
+app.config['JWT_HEADER_TYPE'] = 'Bearer'
 
 # -------------------- INITIALIZE EXTENSIONS --------------------
 db = SQLAlchemy(app)
@@ -49,13 +62,14 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # -------------------- CORS SETUP --------------------
-if os.getenv('FLASK_ENV') == 'production':
-    CORS(app, resources={
-        r"/api/*": {
-            "origins": ["https://your-production-domain.com"],
-            "supports_credentials": True
-        }
-    })
+CORS(app, resources={
+    r"/*": {  # Allow all routes
+        "origins": ["http://localhost:5173", "http://localhost:3000"],
+        "supports_credentials": True,
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    }
+})
 
 # -------------------- UTILITY FUNCTIONS --------------------
 def generate_otp():
@@ -85,7 +99,7 @@ class User(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     verification_code = db.Column(db.String(6), nullable=True)
     verification_code_expiry = db.Column(db.DateTime, nullable=True)
-    __table_args__ = (
+    _table_args_ = (
         db.Index('idx_user_email', 'email'),
         db.Index('idx_user_phone', 'phone'),
     )
@@ -196,8 +210,12 @@ class Wallet(db.Model):
 class NotificationSettings(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    email_notifications = db.Column(db.Boolean, default=True)
-    sms_notifications = db.Column(db.Boolean, default=True)
+    email_announcements = db.Column(db.Boolean, default=True)
+    email_stokvel_updates = db.Column(db.Boolean, default=True)
+    email_marketplace_offers = db.Column(db.Boolean, default=False)
+    push_announcements = db.Column(db.Boolean, default=True)
+    push_stokvel_updates = db.Column(db.Boolean, default=True)
+    push_marketplace_offers = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     user = db.relationship('User', backref='notification_settings')
@@ -208,6 +226,9 @@ class UserPreferences(db.Model):
     language = db.Column(db.String(10), default='en')
     currency = db.Column(db.String(3), default='ZAR')
     theme = db.Column(db.String(10), default='light')
+    data_for_personalization = db.Column(db.Boolean, default=True)
+    data_for_analytics = db.Column(db.Boolean, default=True)
+    data_for_third_parties = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     user = db.relationship('User', backref='preferences')
@@ -223,29 +244,46 @@ class OTP(db.Model):
     def is_valid(self):
         return datetime.utcnow() < self.expires_at and not self.is_used
 
+class UserSession(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user_agent = db.Column(db.String(500))
+    ip_address = db.Column(db.String(45))
+    login_time = db.Column(db.DateTime, default=datetime.utcnow)
+    last_activity = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    is_active = db.Column(db.Boolean, default=True)
+
+    user = db.relationship('User', backref=db.backref('sessions', lazy=True))
+
+class Beneficiary(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    relationship = db.Column(db.String(100))
+    contact = db.Column(db.String(100))
+    share_percentage = db.Column(db.Float)
+    type = db.Column(db.String(20), nullable=False, default='primary')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User', backref='beneficiaries')
+
+class BeneficiaryPayment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    beneficiary_id = db.Column(db.Integer, db.ForeignKey('beneficiary.id'), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    paid_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    beneficiary = db.relationship('Beneficiary', backref='payments')
+
 # -------------------- DECORATORS --------------------
 def token_required(f):
     @wraps(f)
+    @jwt_required()
     def decorated(*args, **kwargs):
-        token = None
-        auth_header = request.headers.get('Authorization')
-
-        if auth_header and auth_header.startswith('Bearer '):
-            token = auth_header.split(' ')[1]
-
-        if not token:
-            return jsonify({'error': 'Token is missing'}), 401
-
-        try:
-            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
-            current_user = User.query.get(data['user_id'])
-            if not current_user:
-                return jsonify({'error': 'User not found'}), 404
-        except jwt.ExpiredSignatureError:
-            return jsonify({'error': 'Token has expired'}), 401
-        except jwt.InvalidTokenError:
-            return jsonify({'error': 'Invalid token'}), 401
-
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+        if not current_user:
+            return jsonify({'error': 'User not found'}), 404
         return f(current_user, *args, **kwargs)
     return decorated
 
@@ -301,6 +339,8 @@ def role_required(allowed_roles):
     return decorator
 
 # -------------------- ROUTES --------------------
+
+
 @app.route('/api/test', methods=['GET'])
 def test():
     logger.debug('Test route accessed')
@@ -309,8 +349,7 @@ def test():
 @app.route('/api/auth/register', methods=['POST', 'OPTIONS'])
 def register():
     if request.method == 'OPTIONS':
-        # Explicitly handle OPTIONS preflight request
-        response = Response()
+        response = make_response()
         response.headers.add('Access-Control-Allow-Origin', 'http://localhost:5173')
         response.headers.add('Access-Control-Allow-Headers', request.headers.get('Access-Control-Request-Headers'))
         response.headers.add('Access-Control-Allow-Methods', request.headers.get('Access-Control-Request-Method'))
@@ -318,7 +357,6 @@ def register():
         response.headers.add('Access-Control-Max-Age', '3600')
         return response, 200
 
-    # Handle the POST request
     if request.method == 'POST':
         try:
             data = request.get_json()
@@ -329,105 +367,90 @@ def register():
             password = data.get('password')
             full_name = data.get('full_name')
             phone = data.get('phone')
-        
+
             # Check if user already exists
             if User.query.filter_by(email=email).first():
                 return jsonify({'error': 'Email already registered'}), 400
-        
+
             # Create new user
             user = User(
                 email=email,
                 full_name=full_name,
                 phone=phone,
-                role='member'  # Default role
+                role='member'
             )
             user.set_password(password)
 
             db.session.add(user)
-            # Commit now to get user.id for potential verification code generation if needed
             db.session.commit()
 
             # Generate and send verification code
-            print(f"Attempting to send verification email to: {user.email}")
             try:
-                verification_code = user.generate_verification()  # This will also commit the code and expiry
-                print(f"Generated verification code: {verification_code}")
+                verification_code = user.generate_verification()
                 success, message = send_verification_email(user.email, verification_code)
-                print(f"SendGrid send result: Success={success}, Message={message}")
-
                 if not success:
-                    # Log the email sending failure, but don't rollback registration if user is created
                     print(f"Warning: Failed to send verification email: {message}")
-            
             except Exception as email_e:
                 print(f"Warning: Exception during verification email sending: {str(email_e)}")
                 import traceback
                 traceback.print_exc()
-                # Continue registration success even if email sending fails
 
-            # Registration successful in terms of user creation
             return jsonify({
                 'message': 'Registration successful. Please check your email for verification code.',
                 'email': user.email,
-                'user_id': user.id  # Include user_id for potential verification step on frontend
+                'user_id': user.id
             }), 201
-        
+
         except Exception as e:
-            db.session.rollback()  # Rollback if any error occurred before commit or in critical steps
+            db.session.rollback()
             print(f"Error during registration: {str(e)}")
             import traceback
             traceback.print_exc()
             return jsonify({'error': 'An unexpected error occurred during registration'}), 500
 
-@app.route('/api/auth/login', methods=['POST', 'OPTIONS'])
+@app.route('/api/auth/login', methods=['POST'])
 def login():
-    if request.method == 'OPTIONS':
-        # Explicitly handle OPTIONS preflight request
-        response = Response()
-        response.headers.add('Access-Control-Allow-Origin', 'http://localhost:5173')
-        response.headers.add('Access-Control-Allow-Headers', request.headers.get('Access-Control-Request-Headers'))
-        response.headers.add('Access-Control-Allow-Methods', request.headers.get('Access-Control-Request-Method'))
-        response.headers.add('Access-Control-Allow-Credentials', 'true')
-        response.headers.add('Access-Control-Max-Age', '3600')
-        return response, 200
+    data = request.get_json()
+    email = data.get('email')
+    password = data.get('password')
+    user = User.query.filter_by(email=email).first()
+    if not user or not user.check_password(password):
+        return jsonify({'error': 'Invalid email or password'}), 401
 
-    # Handle the POST request
-    if request.method == 'POST':
-        try:
-            data = request.get_json()
-            if not data:
-                return jsonify({'error': 'No data provided'}), 400
+    if user.two_factor_enabled:
+        # 2FA logic here
+        pass
 
-            email = data.get('email')
-            password = data.get('password')
+    access_token = create_access_token(identity=str(user.id))
 
-            if not email or not password:
-                return jsonify({'error': 'Email and password are required'}), 400
+    user_agent = request.headers.get('User-Agent', 'Unknown')
+    ip_address = request.remote_addr or 'Unknown'
+    session = UserSession(
+        user_id=user.id,
+        user_agent=user_agent,
+        ip_address=ip_address
+    )
+    db.session.add(session)
+    db.session.commit()
 
-            user = User.query.filter_by(email=email).first()
-            if not user or not user.check_password(password):
-                return jsonify({'error': 'Invalid email or password'}), 401
-
-            if not user.is_verified:
-                return jsonify({'error': 'Please verify your email first'}), 401
-
-            # Create access token using Flask-JWT-Extended
-            access_token = create_access_token(identity=str(user.id))
-
-            return jsonify({
-                'message': 'Login successful',
-                'access_token': access_token,
-                'user': {
-                    'id': user.id,
-                    'email': user.email,
-                    'name': user.full_name,
-                    'role': user.role
-                }
-            }), 200
-
-        except Exception as e:
-            logger.error(f"Login error: {str(e)}")
-            return jsonify({'error': str(e)}), 500
+    user_data = {
+        "id": user.id,
+        "full_name": user.full_name,
+        "email": user.email,
+        "phone": user.phone,
+        "role": user.role,
+        "profile_picture": user.profile_picture,
+        "gender": user.gender,
+        "employment_status": user.employment_status,
+        "is_verified": user.is_verified,
+        "two_factor_enabled": user.two_factor_enabled
+    }
+    return jsonify({
+        "success": True,
+        "message": "Login successful",
+        "access_token": access_token,
+        "user": user_data
+    }), 200
 
 @app.route('/api/auth/me', methods=['GET'])
 @jwt_required()
@@ -969,7 +992,7 @@ def test_connection():
             'status': 'success',
             'database': db_status,
             'email': mail_status,
-            'database_url': app.config['SQLALCHEMY_DATABASE_URI'].replace('postgres:postgres', '***:***')  # Hide password
+            'database_url': app.config['SQLALCHEMY_DATABASE_URI'].replace('postgres:postgres', ':')  # Hide password
         })
     except Exception as e:
         return jsonify({
@@ -1085,7 +1108,7 @@ def resend_verification():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
-    
+
 @app.route('/api/profile', methods=['PUT'])
 @jwt_required()
 def update_profile():
@@ -1112,7 +1135,324 @@ def update_profile():
         db.session.rollback()
         return jsonify({'error': 'Failed to update profile', 'details': str(e)}), 500
 
+@app.route('/api/account/change-password', methods=['POST'])
+@jwt_required()
+def change_password():
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    data = request.get_json()
+    current_password = data.get('current_password')
+    new_password = data.get('new_password')
+
+    if not user or not user.check_password(current_password):
+        return jsonify({'error': 'Current password is incorrect'}), 400
+
+    user.set_password(new_password)
+    db.session.commit()
+    return jsonify({'message': 'Password changed successfully'})
+
+@app.route('/api/account/enable-2fa', methods=['POST'])
+@jwt_required()
+def enable_2fa():
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+
+    otp_code = generate_otp()
+    expiry = datetime.utcnow() + timedelta(minutes=10)
+    otp = OTP(user_id=user.id, code=otp_code, expires_at=expiry)
+    db.session.add(otp)
+    db.session.commit()
+    send_verification_email(user.email, otp_code)
+    return jsonify({'message': 'OTP sent to your email for 2FA activation'})
+
+@app.route('/api/account/verify-2fa', methods=['POST'])
+@jwt_required()
+def verify_2fa():
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    data = request.get_json()
+    otp_code = data.get('otp_code')
+
+    otp = OTP.query.filter_by(user_id=user.id, code=otp_code, is_used=False).order_by(OTP.created_at.desc()).first()
+    if not otp or not otp.is_valid():
+        return jsonify({'error': 'Invalid or expired OTP'}), 400
+
+    otp.is_used = True
+    user.two_factor_enabled = True
+    db.session.commit()
+    return jsonify({'message': 'Two-factor authentication enabled'})
+
+@app.route('/api/account/disable-2fa', methods=['POST'])
+@jwt_required()
+def disable_2fa():
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    user.two_factor_enabled = False
+    db.session.commit()
+    return jsonify({'message': 'Two-factor authentication disabled'})
+
+@app.route('/api/account/verify-2fa-login', methods=['POST'])
+def verify_2fa_login():
+    data = request.get_json()
+    user_id = data.get('user_id')
+    otp_code = data.get('otp_code')
+    user = User.query.get(user_id)
+    otp = OTP.query.filter_by(user_id=user.id, code=otp_code, is_used=False).order_by(OTP.created_at.desc()).first()
+    if not otp or not otp.is_valid():
+        return jsonify({'error': 'Invalid or expired OTP'}), 400
+    otp.is_used = True
+    db.session.commit()
+    access_token = create_access_token(identity=str(user.id))
+    return jsonify({'message': '2FA login successful', 'access_token': access_token}), 200
+
+@app.route('/api/account', methods=['DELETE'])
+@jwt_required()
+def delete_account():
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    db.session.delete(user)
+    db.session.commit()
+    return jsonify({'message': 'Account deleted successfully'})
+
+@app.route('/api/account/sessions', methods=['GET'])
+@jwt_required()
+def list_sessions():
+    user_id = get_jwt_identity()
+    sessions = UserSession.query.filter_by(user_id=user_id, is_active=True).all()
+    return jsonify([
+        {
+            "id": s.id,
+            "user_agent": s.user_agent,
+            "ip_address": s.ip_address,
+            "login_time": s.login_time.isoformat()
+        } for s in sessions
+    ])
+
+@app.route('/api/account/sessions/<int:session_id>', methods=['DELETE'])
+@jwt_required()
+def revoke_session(session_id):
+    user_id = get_jwt_identity()
+    session = UserSession.query.filter_by(id=session_id, user_id=user_id, is_active=True).first()
+    if not session:
+        return jsonify({"error": "Session not found"}), 404
+    session.is_active = False
+    db.session.commit()
+    return jsonify({"message": "Session revoked"})
+
+@app.route('/api/notification-settings', methods=['GET'])
+@jwt_required()
+def get_notification_settings():
+    user_id = get_jwt_identity()
+    settings = NotificationSettings.query.filter_by(user_id=user_id).first()
+    if not settings:
+        settings = NotificationSettings(user_id=user_id)
+        db.session.add(settings)
+        db.session.commit()
+        return jsonify({
+        "email_announcements": settings.email_announcements,
+        "email_stokvel_updates": settings.email_stokvel_updates,
+        "email_marketplace_offers": settings.email_marketplace_offers,
+        "push_announcements": settings.push_announcements,
+        "push_stokvel_updates": settings.push_stokvel_updates,
+        "push_marketplace_offers": settings.push_marketplace_offers,
+    })
+
+@app.route('/api/notification-settings', methods=['PUT'])
+@jwt_required()
+def update_notification_settings():
+    user_id = get_jwt_identity()
+    data = request.get_json()
+    settings = NotificationSettings.query.filter_by(user_id=user_id).first()
+    if not settings:
+        settings = NotificationSettings(user_id=user_id)
+        db.session.add(settings)
+    for field in [
+        "email_announcements", "email_stokvel_updates", "email_marketplace_offers",
+        "push_announcements", "push_stokvel_updates", "push_marketplace_offers"
+    ]:
+        if field in data:
+            setattr(settings, field, data[field])
+    db.session.commit()
+    return jsonify({"message": "Notification settings updated."})
+
+@app.route('/api/privacy-settings', methods=['GET'])
+@jwt_required()
+def get_privacy_settings():
+    user_id = get_jwt_identity()
+    prefs = UserPreferences.query.filter_by(user_id=user_id).first()
+    if not prefs:
+        prefs = UserPreferences(user_id=user_id)
+        db.session.add(prefs)
+        db.session.commit()
+        return jsonify({
+        "data_for_personalization": prefs.data_for_personalization,
+        "data_for_analytics": prefs.data_for_analytics,
+        "data_for_third_parties": prefs.data_for_third_parties,
+    })
+
+@app.route('/api/privacy-settings', methods=['PUT'])
+@jwt_required()
+def update_privacy_settings():
+    user_id = get_jwt_identity()
+    data = request.get_json()
+    prefs = UserPreferences.query.filter_by(user_id=user_id).first()
+    if not prefs:
+        prefs = UserPreferences(user_id=user_id)
+        db.session.add(prefs)
+    for field in [
+        "data_for_personalization", "data_for_analytics", "data_for_third_parties"
+    ]:
+        if field in data:
+            setattr(prefs, field, data[field])
+        db.session.commit()
+    return jsonify({"message": "Privacy settings updated."})
+
+@app.route('/api/download-data', methods=['GET'])
+@jwt_required()
+def download_data():
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    prefs = UserPreferences.query.filter_by(user_id=user_id).first()
+    # Add more data as needed
+    data = {
+        "user": {
+            "id": user.id,
+            "full_name": user.full_name,
+            "email": user.email,
+            "phone": user.phone,
+            "created_at": user.created_at.isoformat(),
+        },
+        "preferences": {
+            "language": prefs.language if prefs else None,
+            "currency": prefs.currency if prefs else None,
+            "theme": prefs.theme if prefs else None,
+            "data_for_personalization": prefs.data_for_personalization if prefs else None,
+            "data_for_analytics": prefs.data_for_analytics if prefs else None,
+            "data_for_third_parties": prefs.data_for_third_parties if prefs else None,
+        }
+    }
+    return jsonify(data)
+
+@app.route('/api/beneficiaries', methods=['GET'])
+@jwt_required()
+def get_beneficiaries():
+    user_id = get_jwt_identity()
+    beneficiaries = Beneficiary.query.filter_by(user_id=user_id).all()
+    return jsonify([
+        {
+            'id': b.id,
+            'name': b.name,
+            'relationship': b.relationship,
+            'contact': b.contact,
+            'share_percentage': b.share_percentage,
+            'type': b.type
+        } for b in beneficiaries
+    ])
+
+@app.route('/api/beneficiaries', methods=['POST'])
+@jwt_required()
+def add_beneficiary():
+    data = request.get_json()
+    beneficiary = Beneficiary(
+        user_id=get_jwt_identity(),
+        name=data['name'],
+        relationship=data.get('relationship', ''),
+        contact=data.get('contact', ''),
+        share_percentage=data.get('share_percentage', 0),
+        type=data.get('type', 'primary')
+    )
+    db.session.add(beneficiary)
+    db.session.commit()
+    return jsonify({'message': 'Beneficiary added!'}), 201
+
+@app.route('/api/beneficiaries/<int:beneficiary_id>', methods=['PUT'])
+@jwt_required()
+def update_beneficiary(beneficiary_id):
+    user_id = get_jwt_identity()
+    beneficiary = Beneficiary.query.filter_by(id=beneficiary_id, user_id=user_id).first()
+    if not beneficiary:
+        return jsonify({'error': 'Beneficiary not found'}), 404
+    data = request.get_json()
+    beneficiary.name = data.get('name', beneficiary.name)
+    beneficiary.relationship = data.get('relationship', beneficiary.relationship)
+    beneficiary.contact = data.get('contact', beneficiary.contact)
+    beneficiary.share_percentage = data.get('share_percentage', beneficiary.share_percentage)
+    beneficiary.type = data.get('type', beneficiary.type)
+    db.session.commit()
+    return jsonify({'message': 'Beneficiary updated successfully'})
+
+@app.route('/api/beneficiaries/<int:beneficiary_id>', methods=['DELETE'])
+@jwt_required()
+def delete_beneficiary(beneficiary_id):
+    user_id = get_jwt_identity()
+    beneficiary = Beneficiary.query.filter_by(id=beneficiary_id, user_id=user_id).first()
+    if not beneficiary:
+        return jsonify({'error': 'Beneficiary not found'}), 404
+    db.session.delete(beneficiary)
+    db.session.commit()
+    return jsonify({'message': 'Beneficiary deleted successfully'})
+
+@app.route('/api/beneficiaries/<int:beneficiary_id>/payments', methods=['POST'])
+@jwt_required()
+def add_payment(beneficiary_id):
+    user_id = get_jwt_identity()
+    beneficiary = Beneficiary.query.filter_by(id=beneficiary_id, user_id=user_id).first()
+    if not beneficiary:
+        return jsonify({'error': 'Beneficiary not found'}), 404
+    data = request.get_json()
+    payment = BeneficiaryPayment(
+        beneficiary_id=beneficiary_id,
+        amount=data['amount']
+    )
+    db.session.add(payment)
+    db.session.commit()
+    return jsonify({'message': 'Payment recorded successfully'})
+
+@app.route('/api/beneficiaries/<int:beneficiary_id>/payments', methods=['GET'])
+@jwt_required()
+def get_payments(beneficiary_id):
+    user_id = get_jwt_identity()
+    beneficiary = Beneficiary.query.filter_by(id=beneficiary_id, user_id=user_id).first()
+    if not beneficiary:
+        return jsonify({'error': 'Beneficiary not found'}), 404
+    payments = BeneficiaryPayment.query.filter_by(beneficiary_id=beneficiary_id).order_by(BeneficiaryPayment.paid_at.desc()).all()
+    return jsonify([
+        {
+            'id': p.id,
+            'amount': p.amount,
+            'paid_at': p.paid_at.isoformat()
+        } for p in payments
+    ])
+
+@app.errorhandler(Exception)
+def handle_error(error):
+    # Let Flask handle HTTP errors (like 404, 405, etc.) with its default pages
+    if isinstance(error, HTTPException):
+        return error
+
+    logger.error(f"Unhandled error: {str(error)}")
+    if isinstance(error, SQLAlchemyError):
+        db.session.rollback()
+        return jsonify({"error": "Database error occurred"}), 500
+    if isinstance(error, (ExpiredSignatureError, JWTExtendedException)):
+        return jsonify({"error": "Token has expired"}), 401
+    if isinstance(error, InvalidTokenError):
+        return jsonify({"error": "Invalid token"}), 401
+    return jsonify({"error": "An unexpected error occurred"}), 500
+
 # -------------------- MAIN --------------------
 if __name__ == '__main__':
     app.run(port=5001, debug=True)
 
+@event.listens_for(Engine, "connect")
+def connect(dbapi_connection, connection_record):
+    connection_record.info['pid'] = os.getpid()
+
+@event.listens_for(Engine, "checkout")
+def checkout(dbapi_connection, connection_record, connection_proxy):
+    pid = os.getpid()
+    if connection_record.info['pid'] != pid:
+        connection_record.info['pid'] = pid
+        connection_record.info['checked_out'] = time.time()

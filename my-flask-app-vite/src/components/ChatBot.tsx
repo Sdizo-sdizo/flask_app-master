@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
+<<<<<<< HEAD
 // Import RotateCcw icon
 import { Menu, X, User, LogOut, Bell, Search, ChevronDown, ChevronLeft, ChevronRight, Home, DollarSign, Activity, BarChart2, Briefcase, Calendar, RotateCcw } from 'lucide-react';
+=======
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
 
 const BOT_ICON_URL = "https://png.pngtree.com/png-clipart/20230401/original/pngtree-smart-chatbot-cartoon-clipart-png-image_9015126.png";
 
@@ -19,12 +22,20 @@ const ChatBot: React.FC = () => {
       // Simulate bot response (replace with actual API call later)
       setTimeout(() => {
         const responses = [
+<<<<<<< HEAD
           "I can help you understand how our stokvel savings work. Would you like to know more? topics like contributions, payouts, or joining groups.",
           "To join a savings group, you can click the 'Get Started' button on the landing page or navigate to the 'Stokvel Groups' section in the dashboard.",
           "Our platform is secure and regulated. We use advanced encryption to protect your data and comply with financial regulations.",
           "You can access your savings anytime through our mobile app or website, available 24/7.",
           "We offer different types of savings groups to suit your needs, including savings, grocery, burial, business, and investment groups. Which one are you interested in?",
           "I'm still learning! Can you please rephrase your question?" // Add a fallback
+=======
+          "I can help you understand how our stokvel savings work. Would you like to know more?",
+          "To join a savings group, you can click the 'Get Started' button and follow the registration process.",
+          "Our platform is secure and regulated. We use advanced encryption to protect your data.",
+          "You can access your savings anytime through our mobile app or website.",
+          "We offer different types of savings groups to suit your needs. Let me tell you more about them."
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
         ];
         const randomResponse = responses[Math.floor(Math.random() * responses.length)];
         setMessages(prev => [...prev, { text: randomResponse, isUser: false }]);
@@ -34,6 +45,7 @@ const ChatBot: React.FC = () => {
     }
   };
 
+<<<<<<< HEAD
   // Function to clear all messages
   const handleClearMessages = () => {
     setMessages([]); // Reset the messages array to empty
@@ -43,12 +55,18 @@ const ChatBot: React.FC = () => {
      }, 100); // Add a small delay
   };
 
+=======
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
   return (
     <div className="fixed bottom-4 right-4 z-50">
       {/* Chat Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
+<<<<<<< HEAD
         className="bg-blue-600 text-white rounded-full p-3 shadow-lg hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center"
+=======
+        className="bg-emerald-600 text-white rounded-full p-3 shadow-lg hover:bg-emerald-700 transition-colors duration-200 flex items-center justify-center"
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
         style={{ width: 56, height: 56 }}
       >
         {isOpen ? (
@@ -66,6 +84,7 @@ const ChatBot: React.FC = () => {
 
       {/* Chat Window */}
       {isOpen && (
+<<<<<<< HEAD
         <div className="absolute bottom-16 right-0 w-80 sm:w-96 bg-white rounded-lg shadow-xl flex flex-col">
           {/* Chat Header */}
           <div className="bg-blue-600 text-white p-4 rounded-t-lg flex items-center justify-between gap-3">
@@ -87,6 +106,20 @@ const ChatBot: React.FC = () => {
 
           {/* Chat Messages */}
           <div className="flex-1 max-h-[60vh] overflow-y-auto p-4 space-y-4">
+=======
+        <div className="absolute bottom-16 right-0 w-80 sm:w-96 bg-white rounded-lg shadow-xl">
+          {/* Chat Header */}
+          <div className="bg-emerald-600 text-white p-4 rounded-t-lg flex items-center gap-3">
+            <img src={BOT_ICON_URL} alt="Chatbot" className="w-8 h-8 rounded-full bg-white p-1" />
+            <div>
+              <h3 className="font-semibold">i-STOKVEL Assistant</h3>
+              <p className="text-sm text-emerald-100">We're here to help!</p>
+            </div>
+          </div>
+
+          {/* Chat Messages */}
+          <div className="h-96 overflow-y-auto p-4 space-y-4">
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
             {messages.map((message, index) => (
               <div
                 key={index}
@@ -102,7 +135,11 @@ const ChatBot: React.FC = () => {
                 <div
                   className={`max-w-[80%] rounded-lg p-3 ${
                     message.isUser
+<<<<<<< HEAD
                       ? 'bg-blue-600 text-white'
+=======
+                      ? 'bg-emerald-600 text-white'
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
                       : 'bg-gray-100 text-gray-800'
                   }`}
                 >
@@ -122,11 +159,19 @@ const ChatBot: React.FC = () => {
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 placeholder="Type your message..."
+<<<<<<< HEAD
                 className="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500"
               />
               <button
                 onClick={handleSendMessage}
                 className="bg-blue-600 text-white rounded-lg px-4 py-2 hover:bg-blue-700 transition-colors duration-200"
+=======
+                className="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:border-emerald-500"
+              />
+              <button
+                onClick={handleSendMessage}
+                className="bg-emerald-600 text-white rounded-lg px-4 py-2 hover:bg-emerald-700 transition-colors duration-200"
+>>>>>>> 2ea9360 (Complete rewrite with new UI and social login components)
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
