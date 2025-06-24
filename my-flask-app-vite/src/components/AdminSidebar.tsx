@@ -65,6 +65,14 @@ const AdminSidebar: React.FC = () => {
               </Link>
             );
           })}
+          <Link
+            to="/dashboard/beneficiaries"
+            className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900`}
+            title={!isOpen ? "Beneficiaries" : undefined}
+          >
+            <BarChart2 className="h-5 w-5" />
+            {isOpen && <span className="ml-3">Beneficiaries</span>}
+          </Link>
         </nav>
       </div>
     </div>

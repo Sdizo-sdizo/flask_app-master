@@ -22,6 +22,7 @@ import PhoneAuth from './pages/PhoneAuth';
 import KYCPage from './pages/KYC';
 import { getCurrentUser as getCurrentUserService } from './services/auth';
 import DashboardLayout from './components/DashboardLayout';
+import Beneficiaries from './pages/Beneficiaries';
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
@@ -118,6 +119,7 @@ const App: React.FC = () => {
           <Route path="digital-wallet" element={<DigitalWallet />} />
           <Route path="kyc" element={<KYCPage />} />
           <Route path="marketplace" element={<Marketplace />} />
+          <Route path="beneficiaries" element={<Beneficiaries />} />
           {/* Add more dashboard sub-pages here if needed */}
         </Route>
 
